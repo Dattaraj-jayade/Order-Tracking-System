@@ -18,13 +18,13 @@
     Create a `.env` file in the root directory and add your  connection string.
 
     
-  ``
-PG_USER ="postgres"
-  PG_HOST ="localhost"
-  PG_DATABASE ="db name"
-  PG_PASSWORD ="********"
-  PG_PORT =5432
-    ``
+ ```env
+PG_USER=postgres
+PG_HOST=localhost
+PG_DATABASE=your_database_name
+PG_PASSWORD=your_password
+PG_PORT=5432
+```
 
 5. **Run the backend:**
 
