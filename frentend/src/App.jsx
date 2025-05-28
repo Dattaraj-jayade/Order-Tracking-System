@@ -23,13 +23,13 @@ const [customers, setCustomers] = useState([]);
   useEffect(() => {
     const fetchClientsWithTotals = async () => {
       try {
-        const clientsRes = await axios.get("http://localhost:3000/api/clients/");
+        const clientsRes = await axios.get("https://order-tracking-system-cbml.onrender.com/api/clients/");
         const clients = clientsRes.data;
 
         // For each client, fetch their total_amount_receivable
         const clientsWithTotals = await Promise.all(
           clients.map(async (client) => {
-            const totalRes = await axios.get(`http://localhost:3000/api/clients/${client.customer_id}`);
+            const totalRes = await axios.get(`https://order-tracking-system-cbml.onrender.com/api/clients/${client.customer_id}`);
             return {
               ...client,
               total_amount_receivable: totalRes.data.total_amount_receivable
@@ -62,7 +62,7 @@ const [customers, setCustomers] = useState([]);
       if (modalMode === 'add') {
    try {
     const response = await axios.post(
-      `http://localhost:3000/api/Ordes/${newClientData.customer_id}`,
+      `https://order-tracking-system-cbml.onrender.com/api/Ordes/${newClientData.customer_id}`,
       newClientData
     );
     console.log('Order added:', response.data);
@@ -74,7 +74,7 @@ const [customers, setCustomers] = useState([]);
        const idToUpdate = clientData.customer_id;                       
       console.log('Updating client with ID:', idToUpdate); // Log the ID being updated
       try {
-        const response = await axios.put(`http://localhost:3000/api/clients/${idToUpdate}`, newClientData);
+        const response = await axios.put(`https://order-tracking-system-cbml.onrender.com/api/clients/${idToUpdate}`, newClientData);
         console.log('Client updated:', response.data);
         setTableData((prevData) =>
           prevData.map((client) => (client.customer_id === idToUpdate ? response.data : client))
