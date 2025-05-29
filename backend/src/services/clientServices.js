@@ -7,90 +7,96 @@ const clientSchema = Joi.object({
   order_date: Joi.date().required(),
   rate_per_kg: Joi.number().positive().required(),
   plate_type: Joi.string().valid("gold plate", "silver plate", "TypeC").required(),
- // status: Joi.boolean().required(),
+  // status: Joi.boolean().required(),
   advance_received: Joi.number().min(0).required(),
   product_size: Joi.number().positive().required(),
 }).unknown(true);
 
-export const getClients = async() => {
-    //const {rows} = await query('SELECT name FROM customers');
-    //const {rows} = await query('SELECT order_date,plate_type,status,advance_received FROM orders');
-    //const {rows} = await query('SELECT product_size, FROM order_item')
-    const { rows } = await query(` 
-    SELECT 
-            customer_id ,
-            customers.name, 
-            orders.order_date, 
-            orders.plate_type, 
-            orders.status, 
-            orders.advance_received,
-            order_items.product_size
-        FROM orders
-        LEFT JOIN customers ON orders.customer_id = customers.id
-        LEFT JOIN order_items ON order_items.order_id = orders.id
-    `);
-    return rows;
+export const getClients = async () => {
+  //const {rows} = await query('SELECT * FROM customers');
+  //const {rows} = await query('SELECT order_date,plate_type,status,advance_received FROM orders');
+  //const {rows} = await query('SELECT product_size, FROM order_item')
+  const { rows } = await query(` 
+    SELECT
+      c.id                 AS customer_id,
+      c.name               AS name,
+      o.id                 AS order_id,
+      o.order_date         AS order_date,
+      o.plate_type         AS plate_type,
+      o.status             AS status,
+      o.advance_received   AS advance_received,
+      oi.product_size      AS product_size
+    FROM customers AS c
+    LEFT JOIN orders AS o
+      ON o.customer_id = c.id
+    LEFT JOIN order_items AS oi
+      ON oi.order_id = o.id
+    ORDER BY c.id
+  `);
+  return rows;
+}
+
+export const createClient = async (clientData) => {
+  const { name, } = clientData;
+  const { rows } = await query(`
+        INSERT INTO customers(name)
+        VALUES($1) RETURNING*`,
+    [name]
+  );
+  return rows[0];
 }
 
 // export const createClient = async (clientData) => {
-//     const { name, } = clientData;
-//     const { rows } = await query(`
-//         INSERT INTO customers(name)
-//         VALUES($1) RETURNING*`,
-//         [name]
-//     );
-//     return rows[0];
-// }
+//   try {
+//     await query('BEGIN');
 
-export const createClient = async (clientData) => {
-  try {
-    await query('BEGIN');
+//     // 1. Insert into customers
+//     const insertCustomerText = `INSERT INTO customers (name) VALUES ($1) RETURNING *`;
+//     const customerRes = await query(insertCustomerText, [clientData.name]);
+//     const customer = customerRes.rows[0];
 
-    // 1. Insert into customers
-    const insertCustomerText = `INSERT INTO customers (name) VALUES ($1) RETURNING *`;
-    const customerRes = await query(insertCustomerText, [clientData.name]);
-    const customer = customerRes.rows[0];
+//     // 2. Insert into orders
+//     const insertOrderText = `
+//       INSERT INTO orders (customer_id, order_date, rate_per_kg, plate_type, status, advance_received)
+//       VALUES ($1, $2, $3, $4, $5 , $6) RETURNING *
+//     `;
+//     const orderRes = await query(insertOrderText, [
+//       customer.id,
+//       clientData.order_date,
+//       clientData.rate_per_kg,
+//       clientData.plate_type,
+//       clientData.status,
+//       clientData.advance_received,
+//     ]);
+//     const order = orderRes.rows[0];
 
-    // 2. Insert into orders
-    const insertOrderText = `
-      INSERT INTO orders (customer_id, order_date, rate_per_kg, plate_type, status, advance_received)
-      VALUES ($1, $2, $3, $4, $5 , $6) RETURNING *
-    `;
-    const orderRes = await query(insertOrderText, [
-      customer.id,
-      clientData.order_date,
-      clientData.rate_per_kg,
-      clientData.plate_type,
-      clientData.status,
-      clientData.advance_received,
-    ]);
-    const order = orderRes.rows[0];
+//     // 3. Insert multiple order_items (optional)
+//     const orderItemsData = [];
+//     const orderItems = clientData.order_items || [];
 
-    // 3. Insert multiple order_items (optional)
-    const orderItemsData = [];
-    const orderItems = clientData.order_items || [];
+//     for (const item of orderItems) {
+//       const itemRes = await query(
+//         `INSERT INTO order_items (order_id, product_size, quantity_kg)
+//          VALUES ($1, $2, $3) RETURNING *`,
+//         [order.id, item.product_size, item.quantity_kg]
+//       );
+//       orderItemsData.push(itemRes.rows[0]);
+//     }
 
-    for (const item of orderItems) {
-      const itemRes = await query(
-        `INSERT INTO order_items (order_id, product_size, quantity_kg)
-         VALUES ($1, $2, $3) RETURNING *`,
-        [order.id, item.product_size, item.quantity_kg]
-      );
-      orderItemsData.push(itemRes.rows[0]);
-    }
+//     await query('COMMIT');
 
-    await query('COMMIT');
+//     return {
+//       customer,
+//       order,
+//       order_items: orderItemsData,
+//     };
+//   } catch (err) {
+//     await query('ROLLBACK');
+//     throw err;
+//   }
+// };
 
-    return {
-      customer,
-      order,
-      order_items: orderItemsData,
-    };
-  } catch (err) {
-    await query('ROLLBACK');
-    throw err;
-  }
-};
+
 export const updateClient = async (customerId, clientData) => {
   // Validate input
   const { error, value } = clientSchema.validate(clientData);
@@ -111,7 +117,7 @@ export const updateClient = async (customerId, clientData) => {
     product_size,
   } = value;
 
-   const status = statusBool ? true : false;
+  const status = statusBool ? true : false;
   // Start transaction
   await query("BEGIN");
 
@@ -175,7 +181,7 @@ export const updateClient = async (customerId, clientData) => {
 };
 
 export const deleteClient = async (clientId) => {
-   
+
   try {
     await query('BEGIN');
 
@@ -218,7 +224,17 @@ export const deleteClient = async (clientId) => {
 
 //   const orderRes = await query(`SELECT * FROM orders WHERE customer_id = $1`, [id]);
 //   const orders = orderRes.rows;
-//   if (orders.length === 0) return { ...client, orders: [], items: [], total_amount_receivable: 0 };
+//   if (orders.length === 0) return {
+//     ...client,
+//     orders: [],
+//     items: [],
+//     total_amount_receivable: 0,
+//     order_date: null,
+//     product_size: 0,
+//     plate_type: '',
+//     status: false,
+//     advance_received: 0
+//   };
 
 //   const itemsRes = await query(
 //     `SELECT * FROM order_items WHERE order_id IN (
@@ -240,15 +256,24 @@ export const deleteClient = async (clientId) => {
 //   }
 
 //   return {
-//     ...client,orders,items,total_amount_receivable: total
+//     ...client, orders, items, total_amount_receivable: total
 //   };
 // };
 
 
 export const getById = async (id) => {
+  const clientRes= await query( `SELECT name FROM customers WHERE id = $1`, [id]);
+  const client = clientRes.rows;
+  if (!client)return null;
   const ordersRes = await query(`SELECT id, rate_per_kg, plate_charges, advance_received FROM orders WHERE customer_id = $1`, [id]);
   const orders = ordersRes.rows;
-  if (orders.length === 0) return { total_amount_receivable: 0 };
+  if (orders.length === 0) return { 
+    total_amount_receivable: 0,
+      order_date: null,
+      product_size: 0,
+      plate_type: '',
+      status: false,
+      advance_received: 0 };
 
   const orderIds = orders.map(order => `'${order.id}'`).join(',');
   const itemsRes = await query(
@@ -257,6 +282,7 @@ export const getById = async (id) => {
   const items = itemsRes.rows;
 
   let total = 0;
+  const latestOrder = orders[orders.length - 1];
   for (const order of orders) {
     const orderItems = items.filter(i => i.order_id === order.id);
     const totalQty = orderItems.reduce((sum, i) => sum + Number(i.quantity_kg ?? 0), 0);
@@ -266,7 +292,8 @@ export const getById = async (id) => {
     total += (rate * totalQty) + plate - advance;
   }
 
-  return { total_amount_receivable: total };
+  return { total_amount_receivable: total 
+  };
 };
 
 // export const searchClients = async (searchTerm) => {
@@ -280,7 +307,7 @@ export const getById = async (id) => {
 //     return rows;
 //   };
 
-  export const searchClients = async (searchTerm) => {
+export const searchClients = async (searchTerm) => {
   const { rows } = await query(
     `
     SELECT
