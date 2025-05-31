@@ -1,22 +1,27 @@
 import './App.css'
-import ADDorder from './components/ADDordes'
+import AddOrderModal from './components/AddOrderModal';
 import Navbar from './components/NavBar'
 import TableList from './components/TableList'
-import ModalForm from './components/ModelForm';
-import { useState, useEffect,useCallback  } from 'react';
+import EditClientModal from './components/EditClientModal';
+import ADDorderitems from './components/AddOrderItemsModal';
+import ADDClient from './components/AddClientModal';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 
 
 
 function App() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('add');
-   const [searchTerm, setSearchTerm] = useState('');
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false)
+  const [isAddOrderOpen, setIsAddOrderOpen] = useState(false)
+  const [isAddOrderitemOpen, setIsAddOrderitemOpen] = useState(false)
+  const [isEditClientOpen, setIsEditClientOpen] = useState(false)
+
+  const [searchTerm, setSearchTerm] = useState('');
   const [clientData, setClientData] = useState(null);
   const [tableData, setTableData] = useState([]);
-const [customers, setCustomers] = useState([]); 
-  
+  const [customers, setCustomers] = useState([]);
+  const [error, setError] = useState(null);
 
 
 
@@ -29,16 +34,20 @@ const [customers, setCustomers] = useState([]);
         // For each client, fetch their total_amount_receivable
         const clientsWithTotals = await Promise.all(
           clients.map(async (client) => {
-            const totalRes = await axios.get(`https://order-tracking-system-cbml.onrender.com/api/clients/${client.customer_id}`);
-            return {
-              ...client,
-              total_amount_receivable: totalRes.data.total_amount_receivable
-            };
+            
+              const totalRes = await axios.get(`https://order-tracking-system-cbml.onrender.com/api/clients/${client.customer_id}`);
+              return {
+                ...client,
+                total_amount_receivable: totalRes.data.total_amount_receivable
+
+              };
+             
           })
         );
 
         setTableData(clientsWithTotals);
         setCustomers(clients);
+
       } catch (err) {
         setError(err.message);
       }
@@ -47,66 +56,124 @@ const [customers, setCustomers] = useState([]);
     fetchClientsWithTotals();
   }, []);
 
-   const handleOpen = (mode, client = null) => {
-    setClientData(client);
-    setModalMode(mode);
-    setIsOpen(true);
+  // Open and close handlers for Add Order Modal
+  const openAddOrderModal = () => setIsAddOrderOpen(true)
+  const closeAddOrderModal = () => setIsAddOrderOpen(false)
+  const openAddClient = () => setIsAddClientOpen(true)
+  const closeAddClient = () => setIsAddClientOpen(false)
+  const openAddOrderitem = () => setIsAddOrderitemOpen(true)
+  const closeAddOrderitem = () => setIsAddOrderitemOpen(false)
+
+  // Open and close handlers for Edit Client Modal
+  const openEditClientModal = (client) => {
+    setClientData(client)
+    setIsEditClientOpen(true)
+  }
+  const closeEditClientModal = () => {
+    setClientData(null)
+    setIsEditClientOpen(false)
+  }
+
+  const handleAddClient = async newClient => {
+    try {
+      const { data } = await axios.post('https://order-tracking-system-cbml.onrender.com/api/clients/', newClient);
+      setTableData(prev => [...prev, data]);
+      closeAddClient();
+      window.location.reload();
+    } catch (err) {
+      console.error('Error adding client:', err);
+    }
   };
 
-  const handleClose = useCallback(() => {
-    setIsOpen(false);
-    setClientData(null);
-  }, []);
+  const handleAddOrder = async (orderData) => {
+    try {
+      const response = await axios.post(
+        `https://order-tracking-system-cbml.onrender.com/api/Ordes/${orderData.customer_id}`,
+        orderData
+      );
+      console.log('Order added:', response.data);
+      setTableData(prev => [...prev, response.data]);
+      closeAddOrderModal();
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to add order:', error);
+    }
+  };
 
-  const handleSubmit = async (newClientData) => {
-      if (modalMode === 'add') {
-   try {
+  const handleAddOrderItem = async (itemData) => {
+  try {
+    // itemData = { order_id, product_size, quantity_kg }
     const response = await axios.post(
-      `https://order-tracking-system-cbml.onrender.com/api/Ordes/${newClientData.customer_id}`,
-      newClientData
+      `https://order-tracking-system-cbml.onrender.com/api/order_items/${itemData.order_id}`,
+      itemData
     );
-    console.log('Order added:', response.data);
-    setTableData((prevData) => [...prevData, response.data]);
+   window.location.reload();
+    // update your UI...
   } catch (error) {
-    console.error('Error adding order:', error);
+    console.error("Error adding order item:", error);
   }
-  } else {
-       const idToUpdate = clientData.customer_id;                       
-      console.log('Updating client with ID:', idToUpdate); // Log the ID being updated
-      try {
-        const response = await axios.put(`https://order-tracking-system-cbml.onrender.com/api/clients/${idToUpdate}`, newClientData);
-        console.log('Client updated:', response.data);
-        setTableData((prevData) =>
-          prevData.map((client) => (client.customer_id === idToUpdate ? response.data : client))
-        );
-      } catch (error) {
-        console.error('Error updating client:', error);
-      }
+};
 
-    }// Handle edit item
-  }
- 
+  const handleEditClient = async (updatedClientData) => {
+    const idToUpdate = updatedClientData.customerId;
+    try {
+      const response = await axios.put(
+        `https://order-tracking-system-cbml.onrender.com/api/clients/${idToUpdate}`,
+        updatedClientData
+      );
+      
+      setTableData((prevData) =>
+        prevData.map((client) =>
+          client.customer_id === idToUpdate ? response.data : client
+        )
+      );
+      window.location.reload();
+    } catch (error) {
+      console.error('Error updating client:', error);
+    }
+  };
 
 
   return (
     <div className="py-5 px-5">
-      <Navbar onOpen={() => handleOpen('add')} onSearch={setSearchTerm} />
+      <Navbar onAddClient={openAddClient}
+        onAddOrder={openAddOrderModal}
+        onAddOrderItem={openAddOrderitem} onSearch={setSearchTerm} />
       <TableList
+        customers={customers}
         tableData={tableData}
-        handleOpen={(mode, client) => handleOpen('edit', client)}
+        setTableData={setTableData}
+        handleOpen={openEditClientModal}
         searchTerm={searchTerm}
       />
 
-      {isOpen && (
-  <ModalForm
-    isOpen={isOpen}
-    onClose={handleClose}
-    mode={modalMode}
-    onSubmit={handleSubmit}
-    clientData={clientData}
-    clients={customers}
-  />
-)}
+      <ADDorderitems
+        ADDClient isOpen={isAddOrderitemOpen}
+        onClose={closeAddOrderitem}
+        onSubmit={handleAddOrderItem}
+        
+        clients={customers}
+      />
+      <ADDClient isOpen={isAddClientOpen}
+        onClose={closeAddClient}
+        onSubmit={handleAddClient}
+        clients={customers} />
+
+      <AddOrderModal
+        isOpen={isAddOrderOpen}
+        onClose={closeAddOrderModal}
+        onSubmit={handleAddOrder}
+        clients={customers}
+      />
+      <EditClientModal
+        isOpen={isEditClientOpen}
+        onClose={closeEditClientModal}
+        onSubmit={handleEditClient}
+        clientData={clientData}
+        clients={customers}
+
+      />
+
     </div>
   );
 }
